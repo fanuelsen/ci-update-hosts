@@ -6,17 +6,6 @@ when:
   branch: main
 
 steps:
-  - name: Debug Key (TEMP)
-    image: alpine
-    commands:
-      - apk add openssh
-      - echo "$PRIVATE_KEY" > /tmp/test_key
-      - chmod 600 /tmp/test_key
-      - ssh -o StrictHostKeyChecking=no -i /tmp/test_key ansible@192.168.30.62 'echo OK'
-    environment:
-      PRIVATE_KEY:
-        from_secret: ansible_private_key
-
   - name: Populate Inventory
     image: alpine
     commands:

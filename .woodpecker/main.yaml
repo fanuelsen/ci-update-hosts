@@ -1,0 +1,47 @@
+when:
+  event:
+    - push
+    - manual
+    - cron
+  branch: main
+
+steps:
+  - name: Populate Inventory
+    image: alpine
+    commands:
+      - mkdir -p inventory
+      - echo "$HOSTS" > inventory/hosts.yml
+    environment:
+      HOSTS:
+        from_secret: hosts
+        
+  - name: Update Alpine Servers
+    image: woodpeckerci/plugin-ansible
+    settings:
+      playbook: playbooks/update_alpine.yml
+      inventory: inventory/hosts.yml
+      galaxy: requirements.yml
+      diff: false
+      syntax_check: false
+      user: ansible
+      become: true
+      verbose: 1
+      private-key:
+        from_secret: ansible_private_key
+      ssh-extra-args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  
+  - name: Send Notification
+    image: appleboy/drone-discord
+    settings:
+      webhook_id:
+        from_secret: webhook_id
+      webhook_token:
+        from_secret: webhook_token
+      message: >
+        {{#success build.status}}✅{{else}}❌{{/success}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
+        - Commit [[{{commit.sha}}]({{commit.link}})]\\n
+        - Author `[{{commit.author}} / {{commit.email}}]`\\n
+        - Message: {{commit.message}}\\n
+        - CI build [[#{{build.number}}]({{build.link}})] reported `[{{uppercase build.status}}]` at `[{{datetime build.finished "2006.01.02 15:04" ""}}]`\\n
+    when:
+      status: [success, failure]

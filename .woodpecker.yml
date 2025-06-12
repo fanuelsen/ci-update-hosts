@@ -38,7 +38,7 @@ steps:
       webhook_token:
         from_secret: webhook_token
       message: >
-        {{#success}}✅{{/success}}{{#failure}}❌{{/failure}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
+        {{#if (eq build.status "success")}}✅{{else}}❌{{/if}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
         - Commit [[{{commit.sha}}]({{commit.link}})]\\n
         - Author `[{{commit.author}} / {{commit.email}}]`\\n
         - Message: {{commit.message}}\\n

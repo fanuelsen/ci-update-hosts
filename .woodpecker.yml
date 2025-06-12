@@ -38,10 +38,10 @@ steps:
       webhook_token:
         from_secret: webhook_token
       message: >
-        {{#equal build.status "success"}}✅{{/equal}}{{#equal build.status "failure"}}❌{{/equal}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
-        - Commit [[{{commit.sha}}]({{commit.link}})]\\n
-        - Author `[{{commit.author}} / {{commit.email}}]`\\n
-        - Message: {{commit.message}}\\n
-        - CI build [[#{{build.number}}]({{build.link}})] reported `[{{uppercase build.status}}]`\\n
+        {{#equal build.status "success"}}✅{{/equal}}{{#equal build.status "failure"}}❌{{/equal}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.
+        - Commit [[{{commit.sha}}]({{commit.link}})]
+        - Author `[{{commit.author}} / {{commit.email}}]`
+        - Message: {{commit.message}}
+        - CI build [[#{{build.number}}]({{build.link}})] reported `[{{uppercase build.status}}]`
     when:
       status: [success, failure]

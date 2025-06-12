@@ -37,11 +37,11 @@ steps:
         from_secret: webhook_id
       webhook_token:
         from_secret: webhook_token
-    message: >
-      {{#eq build.status "success"}}✅{{else}}❌{{/eq}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
-      - Commit [[{{commit.sha}}]({{commit.link}})]\\n
-      - Author `[{{commit.author}} / {{commit.email}}]`\\n
-      - Message: {{commit.message}}\\n
-      - CI build [[#{{build.number}}]({{build.link}})] reported `[{{uppercase build.status}}]` at `[{{datetime build.finished "2006.01.02 15:04" ""}}]`\\n
+      message: >
+        {{#eq build.status "success"}}✅{{else}}❌{{/eq}} Repository `[{{repo.name}}/{{commit.branch}}]` triggered by event `[{{uppercase build.event}}]` for build.\\n
+        - Commit [[{{commit.sha}}]({{commit.link}})]\\n
+        - Author `[{{commit.author}} / {{commit.email}}]`\\n
+        - Message: {{commit.message}}\\n
+        - CI build [[#{{build.number}}]({{build.link}})] reported `[{{uppercase build.status}}]` at `[{{datetime build.finished "2006.01.02 15:04" ""}}]`\\n
     when:
       status: [success, failure]

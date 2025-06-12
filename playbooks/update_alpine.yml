@@ -1,6 +1,8 @@
 ---
 - name: Remote update tasks
   hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
   tasks:
     - name: Update package cache
       community.general.apk:

@@ -1,0 +1,56 @@
+---
+# Update every VM the Proxmox inventory lists: apk on Alpine, apt on Debian.
+# A host that has a newer kernel installed than the one it runs is reported in
+# the play output; it is rebooted only if its VM carries the Proxmox tag
+# `autoreboot`, and never the CI runner (the reboot would kill the pipeline
+# doing it).
+- name: Update every host
+  hosts: all
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    # The Woodpecker agent runs on this VM. It is updated like any other host
+    # but never rebooted from a pipeline: do that by hand.
+    ci_runner: chipchopdeploy
+  tasks:
+    - name: Upgrade every package (Alpine)
+      community.general.apk:
+        update_cache: true
+        upgrade: true
+      when: ansible_facts['os_family'] == "Alpine"
+
+    - name: Upgrade every package (Debian)
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+      when: ansible_facts['os_family'] == "Debian"
+
+    # Alpine keeps one kernel (the upgrade replaces /lib/modules/<old>), Debian
+    # keeps several: on both, the newest directory is the newest installed
+    # kernel, and ansible_facts.kernel (uname -r, gathered before the upgrade) is the
+    # running one.
+    - name: List the installed kernels
+      ansible.builtin.find:
+        paths: /lib/modules
+        file_type: directory
+      register: kernels
+
+    - name: Name the newest one
+      ansible.builtin.set_fact:
+        newest_kernel: "{{ kernels.files | map(attribute='path') | map('basename') | community.general.version_sort | last }}"
+
+    - name: Report a host that runs an older kernel than it has installed
+      ansible.builtin.debug:
+        msg: "reboot needed: running {{ ansible_facts['kernel'] }}, installed {{ newest_kernel }}"
+      when: newest_kernel != ansible_facts['kernel']
+
+    - name: Reboot it if its VM is tagged autoreboot
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        # Alpine has no shutdown(8); busybox reboot asks init to reboot.
+        reboot_command: "{{ '/sbin/reboot' if ansible_facts['os_family'] == 'Alpine' else omit }}"
+      when:
+        - newest_kernel != ansible_facts['kernel']
+        - "'tag_autoreboot' in group_names"
+        - inventory_hostname != ci_runner

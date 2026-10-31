@@ -1,3 +1,14 @@
+# Updates every running VM Proxmox lists (apk on Alpine, apt on Debian): daily
+# from the "Daily Run" cron, on push to main, and by hand. The hosts come from
+# the Proxmox dynamic inventory, as in iac-baseline: a new VM is updated from
+# its first day, nothing to maintain. Tag a VM `noupdate` (or `nobaseline`) in
+# Proxmox to leave it out.
+#
+# The inventory plugin needs the PVE token in the environment, and a
+# plugin-ansible step cannot mix `settings:` and `environment:`, so the first
+# step resolves the fleet (the only step that holds the token) and freezes it
+# to inventory/hosts.yml; the update step (the only one with the SSH key)
+# reads that file.
 when:
   event:
     - push
@@ -6,19 +17,24 @@ when:
   branch: main
 
 steps:
-  - name: Populate Inventory
-    image: alpine
-    commands:
-      - mkdir -p inventory
-      - echo "$HOSTS" > inventory/hosts.yml
+  - name: Resolve the fleet from Proxmox
+    image: woodpeckerci/plugin-ansible
     environment:
-      HOSTS:
-        from_secret: hosts
-        
-  - name: Update Alpine Servers
+      ANSIBLE_INVENTORY_ENABLED: community.proxmox.proxmox
+      PROXMOX_TOKEN_SECRET:
+        from_secret: proxmox_token_secret
+    commands:
+      - ansible-galaxy collection install -r requirements.yml
+      # The Proxmox inventory plugin needs python 'requests' (no proxmoxer).
+      - python3 -c "import requests" 2>/dev/null || pip install --break-system-packages requests
+      # Print what was found (visibility), then freeze it for the next step.
+      - ansible-inventory -i inventory/proxmox.yml --graph
+      - ansible-inventory -i inventory/proxmox.yml --list -y > inventory/hosts.yml
+
+  - name: Update every host
     image: woodpeckerci/plugin-ansible
     settings:
-      playbook: playbooks/update_alpine.yml
+      playbook: playbooks/update.yml
       inventory: inventory/hosts.yml
       galaxy: requirements.yml
       diff: false
@@ -29,7 +45,7 @@ steps:
       private-key:
         from_secret: ansible_private_key
       ssh-extra-args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-  
+
   - name: Send Notification
     image: appleboy/drone-discord
     settings:

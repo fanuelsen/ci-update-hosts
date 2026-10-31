@@ -1,0 +1,42 @@
+# Dynamic inventory: every running QEMU VM on Proxmox, as in iac-baseline
+# (ansible/inventory/proxmox.yml there; keep the two alike).
+#
+# Auth: url/user/token_id below are not secret. The token secret is read from
+# the PROXMOX_TOKEN_SECRET env var (the Woodpecker secret proxmox_token_secret
+# in CI; exported locally). The token is read-only (PVEAuditor).
+#
+# Requires: collection community.proxmox + python 'requests' (no proxmoxer),
+# and the plugin enabled (ANSIBLE_INVENTORY_ENABLED=community.proxmox.proxmox).
+plugin: community.proxmox.proxmox
+
+url: https://proximusmaximus.sublog.org:8006
+user: ci@pve
+token_id: inventory
+# token_secret: taken from $PROXMOX_TOKEN_SECRET
+
+# Proxmox uses a self-signed cluster CA. false is correct on the LAN runner.
+validate_certs: false
+
+want_facts: true
+want_proxmox_nodes_ansible_host: false
+
+# Only running VMs (the stopped Packer templates 100/101 are left out).
+filters:
+  - "proxmox_vmtype == 'qemu'"
+  - "proxmox_status == 'running'"
+  # A VM tagged nobaseline in Proxmox is left alone (an appliance such as Home
+  # Assistant OS, or one CI cannot reach); so is one tagged noupdate (reachable,
+  # but its packages are not CI's to touch).
+  - "'nobaseline' not in (proxmox_tags_parsed | default([]))"
+  - "'noupdate' not in (proxmox_tags_parsed | default([]))"
+
+# The first LAN IP (192.168.x) on any interface but loopback, /CIDR stripped:
+# Alpine names the NIC eth0, Debian ens18; Docker bridges (172.x) never match.
+compose:
+  ansible_host: "(proxmox_agent_interfaces | rejectattr('name','eq','lo') | map(attribute='ip-addresses') | flatten | select('match', '^192\\.168\\.') | first | default('')).split('/') | first"
+
+# Groups from Proxmox tags, e.g. tag_alpine, tag_autoreboot.
+keyed_groups:
+  - key: proxmox_tags_parsed
+    prefix: tag
+    separator: "_"

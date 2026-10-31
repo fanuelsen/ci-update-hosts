@@ -1,1 +1,3 @@
 CLAUDE.md
+# The fleet frozen from the Proxmox inventory by the pipeline (or a local run).
+inventory/hosts.yml

@@ -17,9 +17,13 @@ For each host, `playbooks/update.yml`:
    `ansible.builtin.apt` with `upgrade: dist` + `autoremove` (Debian).
 2. Compares the running kernel with the newest one installed and prints
    `reboot needed: running X, installed Y` for a host that differs.
-3. Reboots that host **only** if its VM is tagged `autoreboot` in Proxmox, and
-   never the CI runner (`chipchopdeploy`: the reboot would kill the pipeline
-   doing it; reboot it by hand).
+3. Reboots that host, one host at a time (so one Pi-hole is always up) and
+   waits for it to come back before the next.
+4. The CI runner (`chipchopdeploy`) last, in its own play: the Woodpecker
+   agent runs in Docker on it, so the pipeline would die with it. It is told
+   to reboot in a minute (`reboot -d 60`) and left alone; the pipeline finishes
+   long before, and the agent (restart policy `unless-stopped`) is back a
+   minute later.
 
 ## Proxmox tags
 
@@ -27,7 +31,6 @@ For each host, `playbooks/update.yml`:
 |---|---|
 | `nobaseline` | left out (an appliance, or a VM CI cannot reach), as in `iac-baseline` |
 | `noupdate` | left out: reachable, but its packages are not CI's to touch |
-| `autoreboot` | rebooted by the run when a newer kernel is installed than running |
 
 ## Pipeline
 

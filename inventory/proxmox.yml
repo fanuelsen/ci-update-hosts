@@ -40,7 +40,7 @@ filters:
 compose:
   ansible_host: "(proxmox_agent_interfaces | rejectattr('name','eq','lo') | map(attribute='ip-addresses') | flatten | select('match', '^192\\.168\\.') | first | default('')).split('/') | first"
 
-# Groups from Proxmox tags, e.g. tag_alpine, tag_autoreboot.
+# Groups from Proxmox tags, e.g. tag_alpine.
 keyed_groups:
   - key: proxmox_tags_parsed
     prefix: tag

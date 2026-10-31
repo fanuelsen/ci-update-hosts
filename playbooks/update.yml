@@ -1,16 +1,14 @@
 ---
 # Update every VM the Proxmox inventory lists: apk on Alpine, apt on Debian.
-# A host that has a newer kernel installed than the one it runs is reported in
-# the play output; it is rebooted only if its VM carries the Proxmox tag
-# `autoreboot`, and never the CI runner (the reboot would kill the pipeline
-# doing it).
+# A host that has a newer kernel installed than the one it runs is rebooted,
+# one host at a time (one Pi-hole is always up), and the CI runner last, with
+# a delay: the reboot would otherwise kill the pipeline doing it.
 - name: Update every host
   hosts: proxmox_all_qemu   # the VMs; the inventory lists the Proxmox node too
   become: true
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    # The Woodpecker agent runs on this VM. It is updated like any other host
-    # but never rebooted from a pipeline: do that by hand.
+    # The Woodpecker agent runs on this VM: see the last play.
     ci_runner: chipchopdeploy
   tasks:
     - name: Upgrade every package (Alpine)
@@ -28,8 +26,8 @@
 
     # Alpine keeps one kernel (the upgrade replaces /lib/modules/<old>), Debian
     # keeps several: on both, the newest directory is the newest installed
-    # kernel, and ansible_facts.kernel (uname -r, gathered before the upgrade) is the
-    # running one.
+    # kernel, and ansible_facts.kernel (uname -r, gathered before the upgrade)
+    # is the running one.
     - name: List the installed kernels
       ansible.builtin.find:
         paths: /lib/modules
@@ -40,17 +38,38 @@
       ansible.builtin.set_fact:
         newest_kernel: "{{ kernels.files | map(attribute='path') | map('basename') | community.general.version_sort | last }}"
 
+    - name: Decide whether a reboot is needed
+      ansible.builtin.set_fact:
+        reboot_needed: "{{ newest_kernel != ansible_facts['kernel'] }}"
+
     - name: Report a host that runs an older kernel than it has installed
       ansible.builtin.debug:
         msg: "reboot needed: running {{ ansible_facts['kernel'] }}, installed {{ newest_kernel }}"
-      when: newest_kernel != ansible_facts['kernel']
+      when: reboot_needed | bool
 
-    - name: Reboot it if its VM is tagged autoreboot
+    - name: Reboot it, one host at a time
       ansible.builtin.reboot:
-        reboot_timeout: 300
+        reboot_timeout: 600
         # Alpine has no shutdown(8); busybox reboot asks init to reboot.
         reboot_command: "{{ '/sbin/reboot' if ansible_facts['os_family'] == 'Alpine' else omit }}"
+      throttle: 1   # the next host only once this one is back
       when:
-        - newest_kernel != ansible_facts['kernel']
-        - "'tag_autoreboot' in group_names"
+        - reboot_needed | bool
         - inventory_hostname != ci_runner
+
+# The runner cannot be rebooted like the others: the Woodpecker agent runs in
+# Docker on it, so the pipeline (this play) would die with it and the run be
+# reported as failed. It is told to reboot in a minute and left alone; the
+# pipeline finishes long before, and the agent is back a minute later.
+- name: Reboot the runner last
+  hosts: chipchopdeploy
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Schedule its reboot
+      ansible.builtin.command: /sbin/reboot -d 60
+      async: 90
+      poll: 0
+      changed_when: true
+      # Decided in the first play; false if that play never reached the runner.
+      when: hostvars[inventory_hostname].reboot_needed | default(false) | bool

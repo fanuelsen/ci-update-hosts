@@ -14,8 +14,16 @@ user: ci@pve
 token_id: inventory
 # token_secret: taken from $PROXMOX_TOKEN_SECRET
 
-# Proxmox uses a self-signed cluster CA. false is correct on the LAN runner.
-validate_certs: false
+# The API certificate is pinned: pve-api.pem next to this file is the node's
+# certificate (self-signed by the PVE cluster CA; that CA lacks a keyUsage
+# extension, which the strict verification urllib3 does today rejects, so the
+# leaf is pinned instead). The run exports REQUESTS_CA_BUNDLE=inventory/pve-api.pem.
+# It expires 2027-10-09; when PVE renews it, refresh the file:
+#   openssl s_client -connect proximusmaximus.sublog.org:8006 </dev/null 2>/dev/null \
+#     | openssl x509 > inventory/pve-api.pem
+# (or give the node an ACME certificate and drop the pin: validate_certs then
+# verifies against the public roots).
+validate_certs: true
 
 want_facts: true
 want_proxmox_nodes_ansible_host: false

@@ -5,7 +5,7 @@
 # `autoreboot`, and never the CI runner (the reboot would kill the pipeline
 # doing it).
 - name: Update every host
-  hosts: all
+  hosts: proxmox_all_qemu   # the VMs; the inventory lists the Proxmox node too
   become: true
   vars:
     ansible_python_interpreter: /usr/bin/python3

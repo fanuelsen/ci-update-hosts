@@ -8,7 +8,8 @@
 # plugin-ansible step cannot mix `settings:` and `environment:`, so the first
 # step resolves the fleet (the only step that holds the token) and freezes it
 # to inventory/hosts.yml; the update step (the only one with the SSH key)
-# reads that file.
+# reads that file. The freeze keeps names, groups and a checked address only
+# (scripts/freeze_inventory.py says why).
 when:
   event:
     - push
@@ -21,6 +22,8 @@ steps:
     image: woodpeckerci/plugin-ansible
     environment:
       ANSIBLE_INVENTORY_ENABLED: community.proxmox.proxmox
+      # The pinned PVE API certificate (see inventory/proxmox.yml).
+      REQUESTS_CA_BUNDLE: inventory/pve-api.pem
       PROXMOX_TOKEN_SECRET:
         from_secret: proxmox_token_secret
     commands:
@@ -29,7 +32,7 @@ steps:
       - python3 -c "import requests" 2>/dev/null || pip install --break-system-packages requests
       # Print what was found (visibility), then freeze it for the next step.
       - ansible-inventory -i inventory/proxmox.yml --graph
-      - ansible-inventory -i inventory/proxmox.yml --list -y > inventory/hosts.yml
+      - ansible-inventory -i inventory/proxmox.yml --list | python3 scripts/freeze_inventory.py > inventory/hosts.yml
 
   - name: Update every host
     image: woodpeckerci/plugin-ansible

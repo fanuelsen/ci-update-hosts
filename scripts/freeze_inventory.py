@@ -34,6 +34,9 @@ def freeze(inventory):
         if not NAME.match(name):
             raise ValueError(f"host name {name!r} is not a plain name")
         address = hostvars.get("ansible_host") or ""
+        if isinstance(address, dict) and set(address) == {"__ansible_unsafe"}:
+            # How `--list` prints a value the plugin marked unsafe.
+            address = address["__ansible_unsafe"] or ""
         if address == "":
             if name not in nodes:  # a node is never a target, and has no address on purpose
                 print(f"{name}: no LAN address (guest agent down?); Ansible will connect by name", file=sys.stderr)

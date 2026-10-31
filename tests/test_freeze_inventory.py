@@ -47,6 +47,17 @@ class FreezeTest(unittest.TestCase):
                 "proxmox_nodes": {"hosts": {"proximusmaximus": {}}},
             }}})
 
+    def test_unwraps_an_address_the_plugin_marked_unsafe(self):
+        # `--list` prints a value the plugin marked unsafe as {"__ansible_unsafe": value} (run 540 saw this
+        # for the portal VM only); the mark is the point of the check, the value is what we validate.
+        src = listing(pihole01="192.168.30.106")
+        src["_meta"]["hostvars"]["pihole01"]["ansible_host"] = {"__ansible_unsafe": "192.168.30.106"}
+        out = freeze_inventory.freeze(src)
+        self.assertEqual(out["all"]["hosts"]["pihole01"], {"ansible_host": "192.168.30.106"})
+        src["_meta"]["hostvars"]["pihole01"]["ansible_host"] = {"__ansible_unsafe": "{{ 1 + 1 }}"}
+        with self.assertRaises(ValueError):
+            freeze_inventory.freeze(src)
+
     def test_refuses_an_address_that_is_not_an_ip_address(self):
         # A guest's agent reports its addresses; the plugin marks them unsafe, a YAML round trip would not.
         with self.assertRaises(ValueError) as e:

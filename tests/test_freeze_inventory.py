@@ -58,6 +58,14 @@ class FreezeTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             freeze_inventory.freeze(src)
 
+    def test_writes_the_canonical_address_and_refuses_a_scoped_one(self):
+        # ipaddress accepts "fe80::1%<anything>" and keeps the scope as given: a template could ride in it.
+        out = freeze_inventory.freeze(listing(pihole01="FE80:0000::0001"))
+        self.assertEqual(out["all"]["hosts"]["pihole01"], {"ansible_host": "fe80::1"})
+        for scoped in ("fe80::1%{{ lookup('pipe', 'id') }}", "fe80::1%eth0", ["192.168.30.106"], 42):
+            with self.assertRaises(ValueError, msg=scoped):
+                freeze_inventory.freeze(listing(pihole01=scoped))
+
     def test_refuses_an_address_that_is_not_an_ip_address(self):
         # A guest's agent reports its addresses; the plugin marks them unsafe, a YAML round trip would not.
         with self.assertRaises(ValueError) as e:

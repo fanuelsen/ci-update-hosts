@@ -43,10 +43,14 @@ def freeze(inventory):
             hosts[name] = {}
             continue
         try:
-            ipaddress.ip_address(str(address))
+            if not isinstance(address, str):
+                raise ValueError
+            ip = ipaddress.ip_address(address)
+            if getattr(ip, "scope_id", None):  # "fe80::1%<anything>": the scope is kept as given
+                raise ValueError
         except ValueError:
             raise ValueError(f"{name}: ansible_host {address!r} is not an IP address") from None
-        hosts[name] = {"ansible_host": str(address)}
+        hosts[name] = {"ansible_host": str(ip)}  # the canonical form, not the text as given
 
     groups = {}
     for group, body in inventory.items():

@@ -22,8 +22,8 @@ steps:
     image: woodpeckerci/plugin-ansible
     environment:
       ANSIBLE_INVENTORY_ENABLED: community.proxmox.proxmox
-      # The pinned PVE API certificate (see inventory/proxmox.yml).
-      REQUESTS_CA_BUNDLE: inventory/pve-api.pem
+      # The PVE cluster CA the API certificate is verified against (see inventory/proxmox.yml).
+      REQUESTS_CA_BUNDLE: inventory/pve-root-ca.pem
       PROXMOX_TOKEN_SECRET:
         from_secret: proxmox_token_secret
     commands:

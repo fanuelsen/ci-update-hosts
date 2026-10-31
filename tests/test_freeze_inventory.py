@@ -66,6 +66,12 @@ class FreezeTest(unittest.TestCase):
             freeze_inventory.freeze(listing(pihole01="192.168.30.106"))
         self.assertEqual(err.getvalue(), "")
 
+    def test_refuses_an_inventory_without_vms(self):
+        # ansible-inventory exits 0 when the plugin fails (a warning, an empty inventory); the run must not.
+        with self.assertRaises(ValueError) as e:
+            freeze_inventory.freeze(listing())
+        self.assertIn("no VM", str(e.exception))
+
     def test_refuses_a_host_name_that_is_not_a_plain_name(self):
         with self.assertRaises(ValueError):
             freeze_inventory.freeze(listing(**{"a b{{": "192.168.30.1"}))

@@ -25,6 +25,10 @@ NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.+-]*$")
 def freeze(inventory):
     """The minimal static inventory for this `--list` output; ValueError when something in it is not plain."""
     nodes = set(inventory.get("proxmox_nodes", {}).get("hosts", []))
+    if not inventory.get("proxmox_all_qemu", {}).get("hosts"):
+        # ansible-inventory exits 0 when the plugin fails (a warning, then an
+        # empty inventory); a run that updates nothing must not look green.
+        raise ValueError("no VM in the inventory: did the Proxmox inventory plugin fail (see its warnings)?")
     hosts = {}
     for name, hostvars in inventory.get("_meta", {}).get("hostvars", {}).items():
         if not NAME.match(name):

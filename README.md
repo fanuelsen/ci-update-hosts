@@ -39,8 +39,7 @@ cron (06:07 UTC):
 
 1. **Resolve the fleet from Proxmox**: `ansible-inventory` with the
    `community.proxmox.proxmox` plugin (read-only `PVEAuditor` token from the
-   `proxmox_token_secret` secret, TLS verified against the PVE cluster CA in
-   `inventory/pve-root-ca.pem`), printed as a graph and frozen to
+   `proxmox_token_secret` secret), printed as a graph and frozen to
    `inventory/hosts.yml` by `scripts/freeze_inventory.py`: host names, groups
    and a checked IP address, nothing else. The plugin marks what Proxmox and
    the guests' agents report as unsafe (never rendered as a template); a plain
@@ -67,21 +66,9 @@ The old repo secret `hosts` (the static inventory) is no longer read.
 
 ### The Proxmox API certificate
 
-The inventory plugin verifies the node's API certificate against
-`inventory/pve-root-ca.pem`, the PVE cluster CA that signed it (from
-`/etc/pve/pve-root-ca.pem` on the node; it lasts until 2035). That CA has no
-keyUsage extension, which urllib3 2.x's strict verification rejects; the CI
-image ships urllib3 1.26, which verifies it. When the image moves to urllib3
-2.x the resolve step fails with an SSL error and the run stops (an empty
-inventory is refused). Then either give the node an ACME certificate and
-delete the file and the `REQUESTS_CA_BUNDLE` line (public roots verify it), or
-pin the node certificate itself, which strict verification accepts as the
-anchor (it expires 2027-10-09, renew the file with it):
-
-```bash
-openssl s_client -connect proximusmaximus.sublog.org:8006 </dev/null 2>/dev/null \
-  | openssl x509 > inventory/pve-root-ca.pem
-```
+The node's API certificate is from Let's Encrypt (ACME with the Cloudflare DNS
+plugin on the node; PVE renews it by itself), so the inventory plugin verifies
+it against the public roots, nothing to pin.
 
 ## Running it by hand
 
@@ -89,7 +76,6 @@ openssl s_client -connect proximusmaximus.sublog.org:8006 </dev/null 2>/dev/null
 ansible-galaxy collection install -r requirements.yml
 export PROXMOX_TOKEN_SECRET=...          # the token's value
 export ANSIBLE_INVENTORY_ENABLED=community.proxmox.proxmox
-export REQUESTS_CA_BUNDLE=inventory/pve-root-ca.pem   # urllib3 1.x; see the certificate section for 2.x
 
 ansible-inventory -i inventory/proxmox.yml --graph             # who is in
 ansible-playbook -i inventory/proxmox.yml playbooks/update.yml \
@@ -103,7 +89,6 @@ ansible-playbook -i inventory/proxmox.yml playbooks/update.yml \
 ```
 ├── .woodpecker.yml               # pipeline: resolve fleet, update, notify
 ├── inventory/proxmox.yml         # Proxmox dynamic inventory (hosts.yml: frozen by a run, ignored)
-├── inventory/pve-root-ca.pem     # the PVE cluster CA the API certificate is verified against
 ├── playbooks/update.yml          # the update play
 ├── scripts/freeze_inventory.py   # the frozen inventory: names, groups, checked addresses
 ├── tests/                        # python3 -m unittest discover -s tests

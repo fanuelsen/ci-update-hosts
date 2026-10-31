@@ -14,12 +14,8 @@ user: ci@pve
 token_id: inventory
 # token_secret: taken from $PROXMOX_TOKEN_SECRET
 
-# The API certificate is verified against the PVE cluster CA that signed it,
-# pve-root-ca.pem next to this file (the run exports
-# REQUESTS_CA_BUNDLE=inventory/pve-root-ca.pem). That CA has no keyUsage
-# extension, which urllib3 2.x's strict verification rejects; the CI image
-# ships urllib3 1.26, which verifies it. README says what to do when the image
-# moves on (an ACME certificate on the node makes all of this unnecessary).
+# The node's API certificate is from Let's Encrypt (ACME via the Cloudflare DNS
+# plugin, set up 2026-11-01; PVE renews it), so the public roots verify it.
 validate_certs: true
 
 want_facts: true
